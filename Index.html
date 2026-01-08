@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dino Disparo Verde</title>
+<style>
+body { margin:0; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background:#87CEEB; font-family:sans-serif; }
+#game { position:relative; width:600px; height:150px; background:#fff; border:2px solid #000; overflow:hidden; }
+#dino,#fire,#restartBtn,#score { position:absolute; bottom:0; }
+#dino { left:20px; width:40px; height:40px; background:#555; border-radius:20px; z-index:2; }
+#fire { width:15px; height:15px; background:red; border-radius:50%; display:none; z-index:2; }
+.obstacle { position:absolute; bottom:0; width:30px; height:30px; border-radius:15px; z-index:1; }
+#controls { margin-top:10px; display:flex; gap:20px; }
+button { padding:10px 20px; font-size:16px; border:none; border-radius:10px; background:#555; color:white; }
+#restartBtn { display:none; left:200px; top:50px; padding:20px 40px; font-size:20px; background:red; color:white; border-radius:10px; z-index:3; }
+#score { left:10px; top:10px; font-size:20px; color:black; z-index:4; }
+</style>
+</head>
+<body>
+
+<div id="game">
+  <div id="dino"></div>
+  <div id="fire"></div>
+  <button id="restartBtn">Reiniciar</button>
+  <div id="score">Puntos: 0</div>
+</div>
+
+<div id="controls">
+  <button id="jumpBtn">Saltar</button>
+  <button id="shootBtn">Disparar</button>
+</div>
+
+<script>
+const dino = document.getElementById('dino');
+const fire = document.getElementById('fire');
+const game = document.getElementById('game');
+const jumpBtn = document.getElementById('jumpBtn');
+const shootBtn = document.getElementById('shootBtn');
+const restartBtn = document.getElementById('restartBtn');
+const scoreDiv = document.getElementById('score');
+
+let jumping = false;
+let dinoPos = 20;
+let obstacles = [];
+let gameOverFlag = false;
+let obstacleInterval;
+let score = 0;
+let speed = 5; // velocidad inicial de obstáculos
+
+// Crear obstáculos
+function createObstacle(){
+  if(gameOverFlag) return;
+  const obs = document.createElement('div');
+  obs.classList.add('obstacle');
+  // Elegir color verde o marrón
+  obs.dataset.type = Math.random()>0.5 ? 'green' : 'brown';
+  obs.style.background = obs.dataset.type;
+  obs.style.right = '-30px';
+  obs.style.bottom = '0px';
+  game.appendChild(obs);
+  obstacles.push(obs);
+
+  setTimeout(createObstacle, Math.random()*2000 + 1500);
+}
+createObstacle();
+
+// Saltar (más lento)
+function jump(){
+  if(jumping || gameOverFlag) return;
+  jumping = true;
+  let h = 0;
+  const up = setInterval(()=>{
+    if(h>=60){ 
+      clearInterval(up);
+      const down = setInterval(()=>{
+        if(h<=0){ clearInterval(down); jumping=false; }
+        dino.style.bottom=(h-=3)+'px';
+      },30);
+    }
+    dino.style.bottom=(h+=3)+'px';
+  },30);
+}
+
+// Disparo (solo elimina obstáculo verde)
+function shoot(){
+  if(gameOverFlag) return;
+  fire.style.display='block';
+  fire.style.left=(dinoPos+30)+'px';
+  fire.style.bottom=dino.style.bottom;
+  let firePos = dinoPos + 30;
+  const f = setInterval(()=>{
+    firePos += 10;
+    fire.style.left = firePos+'px';
+    if(firePos>600){ fire.style.display='none'; clearInterval(f); return; }
+
+    for(let i=0;i<obstacles.length;i++){
+      const obsRect = obstacles[i].getBoundingClientRect();
+      const fireRect = fire.getBoundingClientRect();
+
+      // Solo eliminar si es verde
+      if(obstacles[i].dataset.type==='green' &&
+         fireRect.right>obsRect.left && fireRect.left<obsRect.right && fireRect.bottom>obsRect.top){
+        obstacles[i].remove();
+        obstacles.splice(i,1);
+        fire.style.display='none';
+        clearInterval(f);
+        break;
+      }
+    }
+  },20);
+}
+
+// Mover obstáculos y chequear colisiones
+function moveObstacles(){
+  obstacles.forEach((obs,i)=>{
+    let pos = parseInt(obs.style.right) || 0;
+    pos += speed;
+    obs.style.right = pos+'px';
+
+    const dinoRect = dino.getBoundingClientRect();
+    const obsRect = obs.getBoundingClientRect();
+
+    if(dinoRect.right>obsRect.left && dinoRect.left<obsRect.right && dinoRect.bottom>obsRect.top){
+      endGame();
+    }
+
+    if(pos>600){ obs.remove(); obstacles.splice(i,1); }
+  });
+}
+
+// Incrementar velocidad y puntos
+function updateScore(){
+  if(gameOverFlag) return;
+  score++;
+  scoreDiv.innerText = "Puntos: " + score;
+  if(score % 50 === 0) speed += 0.5;
+}
+
+// Iniciar juego
+function startGameLoops(){
+  obstacleInterval = setInterval(moveObstacles,30);
+  setInterval(updateScore, 500);
+}
+startGameLoops();
+
+// Terminar juego
+function endGame(){
+  gameOverFlag = true;
+  clearInterval(obstacleInterval);
+  restartBtn.style.display='block';
+}
+
+// Reiniciar
+restartBtn.addEventListener('click',()=> location.reload());
+
+// Botones táctiles
+jumpBtn.addEventListener('click', jump);
+shootBtn.addEventListener('click', shoot);
+
+</script>
+</body>
+</html>
